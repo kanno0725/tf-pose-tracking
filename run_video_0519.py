@@ -11,6 +11,7 @@ import pandas as pd
 #from tf_pose import common
 from tf_pose.estimator import TfPoseEstimator
 from tf_pose.networks import get_graph_path, model_wh
+from tracking_3 import roll,tracking_function
 
 # 読み込む動画のパス
 movie_file = 'test.mp4'
@@ -57,9 +58,7 @@ while True:
     humans = e.inference(img, resize_to_default=(w > 0 and h > 0), upsample_size=4.0)
     # 取得した人物データをフレームの画像に合成
     img = TfPoseEstimator.draw_humans(img, humans, imgcopy=False)
-    # 合成した画像をフレームとしてアウトプットに追加
-    vw.write(img)
-    
+
     # per human
     xx = 0
     coordinate_frame = []
@@ -69,9 +68,9 @@ while True:
         for m in human.body_parts:
             body_part = human.body_parts[m]
             center = [int(body_part.x * w + 0.5), int(body_part.y * h + 0.5)]
-            #center_l = list(center)
-            list = [[frame_no, xx, m, center[0],center[1]]]
-            df = pd.DataFrame(data=list, columns=columns)
+            #list->parts_list
+            parts_list = [[frame_no, xx, m, center[0],center[1]]]
+            df = pd.DataFrame(data=parts_list, columns=columns)
             # add list to dfs
             dfs = pd.concat([dfs, df])
             
@@ -86,9 +85,20 @@ while True:
     #id_listを作成
     if frame_no == 0:
         id_list = list(range(len(coordinate[0])))
+        id_max = max(id_list) # len(coordinate[0])-1    
     else:
-        pass
         # import method id_list
+        id_list_new, id_max, id_exist = tracking_function(coordinate, frame_no, id_list, id_max)
+       
+        if id_exist:
+            id_list = id_list_new
+            
+            # 取得した人物のidをフレーム画像に描画
+            for human_no in range(xx):
+                img = cv2.putText(img,'id:'+str(id_list[human_no]),(coordinate_frame[human_no][0],coordinate_frame[human_no][1]+5),cv2.FONT_HERSHEY_PLAIN,1,(100, 255, 100), 1, cv2.LINE_AA)
+            
+    # 合成した画像をフレームとしてアウトプットに追加
+    vw.write(img)
     
     frame_no += 1
             
