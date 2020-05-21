@@ -11,12 +11,13 @@ import pandas as pd
 #from tf_pose import common
 from tf_pose.estimator import TfPoseEstimator
 from tf_pose.networks import get_graph_path, model_wh
-from tracking_3 import roll,tracking_function
+from tracking_3 import tracking_function
+from search_weld import search_weld
 
 # 読み込む動画のパス
 movie_file = 'test.mp4'
-output_file = 'test_result4.mp4'
-output_csv1 = "id_list.csv"
+output_file = 'test_result7.mp4'
+output_csv1 = "id_list_add_weld7.csv"
 
 # tf-poseの準備
 model = 'cmu'
@@ -78,10 +79,16 @@ while True:
             if m == 1:
                 coordinate_frame.append(center)
     
+    weld_list = search_weld(img)
+    ww = len(weld_list)
+    coordinate_frame.extend(weld_list)
+    
     if len(coordinate_frame) == 0:
         coordinate.append([['none']])
     else:
         coordinate.append(coordinate_frame)
+    
+    
     
     #id_listを作成
     if frame_no == 0:
@@ -94,28 +101,54 @@ while True:
             f.write(','+str(x))
         f.write("\n")
         f.close()
+        for human_no in range(xx):
+            img = cv2.putText(img,'id:'+str(id_list[human_no]),(coordinate_frame[human_no][0],coordinate_frame[human_no][1]+5),cv2.FONT_HERSHEY_PLAIN,1,(100, 255, 100), 1, cv2.LINE_AA)
+        
+        for weld_no in range(xx,len(id_list)):
+            img = cv2.putText(img,'id:'+str(id_list[weld_no]),(coordinate_frame[weld_no][0],coordinate_frame[weld_no][1]+5),cv2.FONT_HERSHEY_PLAIN,1,(100, 100, 255), 1, cv2.LINE_AA)
+        
+        
     else:
         # import method id_list
-        id_list_new, id_max, id_exist = tracking_function(coordinate, frame_no, id_list, id_max)
+        id_list_new, id_max, id_exist = tracking_function(coordinate, frame_no, id_list, id_max, xx)
        
         if id_exist:
-            id_list = id_list_new
+            id_list_update = []
+            coordinate_update = []
+            #id_listの0.1の要素を削除と同じインデックスのcoordinateからも削除
+            for n in range(len(id_list_new)):
+                if id_list_new[n] != 0.1:
+                    id_list_update.append(id_list_new[n])
+                    coordinate_update.append(coordinate[frame_no][n])
             
-            #id_listをCSVに出力
-            f = open(output_csv1,'a')
-            f.write('frame'+str(frame_no))
-            for x in id_list:
-                f.write(','+str(x))
-            f.write("\n")
-            f.close()
-            
-            # 取得した人物のidをフレーム画像に描画
-            for human_no in range(xx):
-                img = cv2.putText(img,'id:'+str(id_list[human_no]),(coordinate_frame[human_no][0],coordinate_frame[human_no][1]+5),cv2.FONT_HERSHEY_PLAIN,1,(100, 255, 100), 1, cv2.LINE_AA)
-            
+            if len(id_list_update) == 0:
+                coordinate.pop(-1)
+                coordinate.append([['none']])
+            else:
+                id_list = id_list_update
+                coordinate.pop(-1)
+                coordinate.append(coordinate_update)
+                    
+                #id_listをCSVに出力
+                f = open(output_csv1,'a')
+                f.write('frame'+str(frame_no))
+                for x in id_list:
+                    f.write(','+str(x))
+                f.write("\n")
+                f.close()
+                
+                # 取得した人物のidをフレーム画像に描画
+                for human_no in range(xx):
+                    img = cv2.putText(img,'id:'+str(id_list[human_no]),(coordinate_frame[human_no][0],coordinate_frame[human_no][1]+5),cv2.FONT_HERSHEY_PLAIN,1,(100, 255, 100), 1, cv2.LINE_AA)
+                
+                for weld_no in range(xx,len(id_list)):
+                    img = cv2.putText(img,'id:'+str(id_list[weld_no]),(coordinate_frame[weld_no][0],coordinate_frame[weld_no][1]+5),cv2.FONT_HERSHEY_PLAIN,1,(100, 100, 255), 1, cv2.LINE_AA)
+                    img = cv2.circle(img, (coordinate_frame[weld_no][0],coordinate_frame[weld_no][1]), 10, (255, 0, 0),3)
+    
     # 合成した画像をフレームとしてアウトプットに追加
     vw.write(img)
     
+    print(frame_no)
     frame_no += 1
             
 # 書き込み処理
