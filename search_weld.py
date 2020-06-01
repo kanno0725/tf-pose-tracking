@@ -11,7 +11,7 @@ def search_weld(frame):
     gray_img = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
     
     # 2値化
-    ret, binary = cv2.threshold(gray_img, 225, 255, cv2.THRESH_BINARY)
+    ret, binary = cv2.threshold(gray_img, 245, 255, cv2.THRESH_BINARY)
     #test 245->255
     
     # 輪郭抽出
